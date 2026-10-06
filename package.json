@@ -38,6 +38,8 @@
     "test:e2e": "node --experimental-strip-types tests/test-e2e-backup.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "express": "^4.21.2",
@@ -48,6 +50,7 @@
     "tailwind-merge": "^3.0.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@tailwindcss/vite": "^4.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
