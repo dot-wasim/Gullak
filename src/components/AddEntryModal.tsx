@@ -14,12 +14,14 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({
   onClose,
   entryToEdit,
 }) => {
-  const { settings, addEntry, updateEntry } = useApp();
+  const { settings, addEntry, updateEntry, addCustomIncomeSource } = useApp();
 
   const [type, setType] = useState<EntryType>('expense');
   const [amount, setAmount] = useState<string>('');
   const [category, setCategory] = useState<string>('');
   const [source, setSource] = useState<string>('');
+  const [isCustomSource, setIsCustomSource] = useState(false);
+  const [customSourceText, setCustomSourceText] = useState('');
   const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -33,14 +35,25 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({
         setType(entryToEdit.type);
         setAmount(entryToEdit.amount.toString());
         setCategory(entryToEdit.category || settings.categories[0] || 'Other');
-        setSource(entryToEdit.source || settings.incomeSources[0] || 'Salary');
+        const existingSource = entryToEdit.source || settings.incomeSources[0] || 'Salary / Wages';
+        if (settings.incomeSources.includes(existingSource)) {
+          setSource(existingSource);
+          setIsCustomSource(false);
+          setCustomSourceText('');
+        } else {
+          setSource(existingSource);
+          setIsCustomSource(true);
+          setCustomSourceText(existingSource);
+        }
         setDate(entryToEdit.date || new Date().toISOString().split('T')[0]);
         setNote(entryToEdit.note || '');
       } else {
         setType('expense');
         setAmount('');
         setCategory(settings.categories[0] || 'Food & Drinks');
-        setSource(settings.incomeSources[0] || 'Salary');
+        setSource(settings.incomeSources[0] || 'Salary / Wages');
+        setIsCustomSource(false);
+        setCustomSourceText('');
         setDate(new Date().toISOString().split('T')[0]);
         setNote('');
       }
@@ -69,9 +82,14 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({
       return;
     }
 
-    if (type === 'income' && !source) {
-      setError('Please provide an income source.');
+    const effectiveSource = isCustomSource ? customSourceText.trim() : source.trim();
+    if (type === 'income' && !effectiveSource) {
+      setError('Please select or enter an income stream.');
       return;
+    }
+
+    if (type === 'income' && isCustomSource && effectiveSource) {
+      addCustomIncomeSource(effectiveSource);
     }
 
     setIsSubmitting(true);
@@ -82,7 +100,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({
           type,
           amount: parsedAmount,
           category: type === 'expense' ? category : undefined,
-          source: type === 'income' ? source : undefined,
+          source: type === 'income' ? effectiveSource : undefined,
           date,
           note: note.trim() || undefined,
         });
@@ -91,7 +109,7 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({
           type,
           amount: parsedAmount,
           category: type === 'expense' ? category : undefined,
-          source: type === 'income' ? source : undefined,
+          source: type === 'income' ? effectiveSource : undefined,
           date,
           note: note.trim() || undefined,
         });
@@ -202,26 +220,82 @@ export const AddEntryModal: React.FC<AddEntryModalProps> = ({
               </div>
             </div>
           ) : (
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                Income Source <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <Briefcase className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="e.g. Salary, Freelance"
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition"
-                  list="income-sources-list"
-                />
-                <datalist id="income-sources-list">
-                  {settings.incomeSources.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Income Stream <span className="text-emerald-600">*</span>
+                </label>
+                <span className="text-[11px] text-slate-400">Multiple streams supported</span>
               </div>
+
+              {/* Stream Select Chips */}
+              <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl max-h-40 overflow-y-auto">
+                {settings.incomeSources.map((s) => {
+                  const isSelected = !isCustomSource && source === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        setIsCustomSource(false);
+                        setSource(s);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      <span>{s}</span>
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => setIsCustomSource(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+                    isCustomSource
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  + Custom Stream
+                </button>
+              </div>
+
+              {/* Custom stream inline input when requested */}
+              {isCustomSource ? (
+                <div className="pt-1 space-y-1">
+                  <div className="relative">
+                    <Briefcase className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Type custom income stream (e.g. YouTube, Royalties, Consulting)..."
+                      value={customSourceText}
+                      onChange={(e) => setCustomSourceText(e.target.value)}
+                      autoFocus
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 text-sm font-medium text-slate-800 bg-white border border-emerald-500 ring-2 ring-emerald-100 rounded-xl outline-none transition"
+                    />
+                  </div>
+                  <p className="text-[11px] text-emerald-600">
+                    This new income stream will be added to your stream list.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-[11px] text-slate-500 flex items-center justify-between px-1">
+                  <span>Active stream: <strong className="text-emerald-700">{source}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomSource(true)}
+                    className="text-emerald-600 font-semibold hover:underline cursor-pointer"
+                  >
+                    + Add other stream
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

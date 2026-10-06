@@ -13,6 +13,7 @@ import {
   updateGoal as dbUpdateGoal,
   deleteGoal as dbDeleteGoal,
   addMoneyToGoal as dbAddMoneyToGoal,
+  addIncomeSource as dbAddIncomeSource,
   markKeySaved as dbMarkKeySaved,
   subscribeStorage
 } from '../lib/storage';
@@ -41,6 +42,7 @@ interface AppContextType {
   updateGoal: (goal: Goal) => Promise<boolean>;
   deleteGoal: (id: string) => Promise<boolean>;
   addMoneyToGoal: (id: string, amount: number) => Promise<boolean>;
+  addCustomIncomeSource: (source: string) => void;
   confirmKeySaved: () => void;
   runBackup: () => Promise<{ success: boolean; error?: string }>;
   fetchBackupForRestore: (key: string) => Promise<{ payload?: BackupPayload; backupId?: string; error?: string }>;
@@ -230,6 +232,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const addCustomIncomeSource = (source: string) => {
+    dbAddIncomeSource(source);
+    setSettings(getSettings());
+  };
+
   const confirmKeySaved = () => {
     dbMarkKeySaved();
     reloadFromStorage();
@@ -282,6 +289,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateGoal,
         deleteGoal,
         addMoneyToGoal,
+        addCustomIncomeSource,
         confirmKeySaved,
         runBackup,
         fetchBackupForRestore,

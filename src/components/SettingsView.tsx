@@ -14,6 +14,8 @@ import {
   Lock,
   Wifi,
   WifiOff,
+  Briefcase,
+  Plus,
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -27,11 +29,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenRestore }) => 
     isBackingUp,
     isOnline,
     settings,
+    addCustomIncomeSource,
   } = useApp();
 
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [newStreamText, setNewStreamText] = useState('');
 
   const handleCopyKey = async () => {
     if (!backupMeta?.recoveryKey) return;
@@ -214,6 +218,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenRestore }) => 
             </p>
           </div>
         )}
+      </div>
+
+      {/* Income Streams Management */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+            <Briefcase className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">
+              Income Streams ({settings.incomeSources.length})
+            </h3>
+            <p className="text-[11px] text-slate-400">Available income sources for transactions</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 border border-slate-100 rounded-2xl max-h-48 overflow-y-auto">
+          {settings.incomeSources.map((src) => (
+            <span
+              key={src}
+              className="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg text-xs shadow-2xs"
+            >
+              {src}
+            </span>
+          ))}
+        </div>
+
+        {/* Add new stream */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (newStreamText.trim()) {
+              addCustomIncomeSource(newStreamText.trim());
+              setNewStreamText('');
+            }
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="text"
+            placeholder="Add new stream (e.g. YouTube, Royalties)..."
+            value={newStreamText}
+            onChange={(e) => setNewStreamText(e.target.value)}
+            className="flex-1 px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none transition"
+          />
+          <button
+            type="submit"
+            disabled={!newStreamText.trim()}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 cursor-pointer shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add</span>
+          </button>
+        </form>
       </div>
 
       {/* App Information & Privacy */}

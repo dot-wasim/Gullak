@@ -23,12 +23,17 @@ const DEFAULT_SETTINGS: Settings = {
     'Other'
   ],
   incomeSources: [
-    'Salary',
+    'Salary / Wages',
     'Freelance',
     'Business',
-    'Investment',
-    'Gift',
-    'Refund',
+    'Investments & Dividends',
+    'Rental Income',
+    'Side Hustle',
+    'Bonus & Incentives',
+    'Interest & Savings',
+    'Consulting',
+    'Gift / Grant',
+    'Refund / Cashback',
     'Other'
   ]
 };
@@ -124,7 +129,16 @@ export function getSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (raw) {
-      const parsed: Settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      const rawObj = JSON.parse(raw);
+      // Ensure existing saved settings get all default income sources plus any user added ones
+      const mergedSources = Array.isArray(rawObj.incomeSources)
+        ? Array.from(new Set([...DEFAULT_SETTINGS.incomeSources, ...rawObj.incomeSources]))
+        : DEFAULT_SETTINGS.incomeSources;
+      const parsed: Settings = {
+        ...DEFAULT_SETTINGS,
+        ...rawObj,
+        incomeSources: mergedSources
+      };
       cachedSettings = parsed;
       return parsed;
     }
@@ -144,6 +158,19 @@ export function saveSettings(settings: Settings): void {
     console.error('Error saving settings', err);
   }
   notifySubscribers();
+}
+
+export function addIncomeSource(source: string): void {
+  const trimmed = source.trim();
+  if (!trimmed) return;
+  const current = getSettings();
+  if (!current.incomeSources.includes(trimmed)) {
+    const updated = {
+      ...current,
+      incomeSources: [...current.incomeSources, trimmed]
+    };
+    saveSettings(updated);
+  }
 }
 
 export function getEntries(): Entry[] {
