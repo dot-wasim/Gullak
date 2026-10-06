@@ -1,0 +1,17 @@
+{
+  "name": "Gullak Budget",
+  "short_name": "Gullak",
+  "description": "Simple offline-first private budget app with encrypted backup",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/piggy-bank.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
