@@ -17,6 +17,7 @@ import {
   Settings,
   Plus,
   PiggyBank,
+  Download,
 } from 'lucide-react';
 
 type Tab = 'home' | 'history' | 'goals' | 'settings';
@@ -33,6 +34,45 @@ export const App: React.FC = () => {
   const [selectedGoalForDeposit, setSelectedGoalForDeposit] = useState<Goal | null>(null);
 
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
+
+  // Native PWA install handling
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  React.useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => {
+      setIsAppInstalled(true);
+      setDeferredPrompt(null);
+    });
+
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsAppInstalled(true);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        setIsAppInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert(
+        'To install as an app on your phone:\n\n• On Android: Tap Chrome menu (3 dots) -> "Install app" or "Add to Home Screen"\n• On iPhone: Tap Safari Share button (box with arrow) -> "Add to Home Screen"'
+      );
+    }
+  };
 
   if (!isInitialized) {
     return (
@@ -72,17 +112,31 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setEntryToEdit(null);
-            setIsAddEntryOpen(true);
-          }}
-          className="flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs px-3 py-1.5 rounded-xl border border-emerald-200 transition cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[3]" />
-          <span>Quick Add</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          {!isAppInstalled && (
+            <button
+              type="button"
+              onClick={handleInstallApp}
+              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-xl shadow-xs transition cursor-pointer"
+              title="Install as native app"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Install App</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setEntryToEdit(null);
+              setIsAddEntryOpen(true);
+            }}
+            className="flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs px-2.5 py-1.5 rounded-xl border border-emerald-200 transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+            <span>Add</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Tab Content */}
@@ -184,7 +238,7 @@ export const App: React.FC = () => {
       </nav>
 
       {/* Modals */}
-      <OnboardingModal />
+      <OnboardingModal onOpenRestore={() => setIsRestoreOpen(true)} />
 
       <AddEntryModal
         isOpen={isAddEntryOpen}

@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { KeyRound, ShieldAlert, Copy, Check, Lock } from 'lucide-react';
 
-export const OnboardingModal: React.FC = () => {
+interface OnboardingModalProps {
+  onOpenRestore?: () => void;
+}
+
+export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onOpenRestore }) => {
   const { backupMeta, confirmKeySaved } = useApp();
   const [copied, setCopied] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
@@ -114,6 +118,19 @@ export const OnboardingModal: React.FC = () => {
           >
             I saved my key & Continue
           </button>
+
+          {/* Already have key link for reinstalling users */}
+          {onOpenRestore && (
+            <div className="pt-2 text-center border-t border-slate-100">
+              <button
+                type="button"
+                onClick={onOpenRestore}
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+              >
+                Already have a recovery key? Restore existing data
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
