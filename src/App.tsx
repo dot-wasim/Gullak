@@ -10,6 +10,7 @@ import { AddEntryModal } from './components/AddEntryModal';
 import { AddGoalModal } from './components/AddGoalModal';
 import { AddMoneyModal } from './components/AddMoneyModal';
 import { RestoreModal } from './components/RestoreModal';
+import { InstallModal } from './components/InstallModal';
 import {
   Home,
   Clock,
@@ -34,6 +35,7 @@ export const App: React.FC = () => {
   const [selectedGoalForDeposit, setSelectedGoalForDeposit] = useState<Goal | null>(null);
 
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   // Native PWA install handling
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,19 +61,8 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const handleInstallApp = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        setIsAppInstalled(true);
-      }
-      setDeferredPrompt(null);
-    } else {
-      alert(
-        'To install as an app on your phone:\n\n• On Android: Tap Chrome menu (3 dots) -> "Install app" or "Add to Home Screen"\n• On iPhone: Tap Safari Share button (box with arrow) -> "Add to Home Screen"'
-      );
-    }
+  const handleInstallApp = () => {
+    setIsInstallModalOpen(true);
   };
 
   if (!isInitialized) {
@@ -262,6 +253,13 @@ export const App: React.FC = () => {
       <RestoreModal
         isOpen={isRestoreOpen}
         onClose={() => setIsRestoreOpen(false)}
+      />
+
+      <InstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onInstalled={() => setIsAppInstalled(true)}
       />
     </div>
   );

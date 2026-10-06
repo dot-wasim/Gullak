@@ -5,6 +5,8 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/manifest.json',
   '/piggy-bank.svg',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

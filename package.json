@@ -1,14 +1,41 @@
 {
   "name": "gullak",
-  "private": true,
   "version": "1.0.0",
+  "description": "Simple, private & offline-first budget PWA with zero-knowledge AES-256-GCM encryption and 12-word recovery.",
   "type": "module",
+  "license": "MIT",
+  "author": "Wasim",
+  "homepage": "https://github.com/dot-wasim/Gullak#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dot-wasim/Gullak.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dot-wasim/Gullak/issues"
+  },
+  "keywords": [
+    "budget",
+    "budget-app",
+    "expense-tracker",
+    "pwa",
+    "progressive-web-app",
+    "zero-knowledge",
+    "aes-256-gcm",
+    "pbkdf2",
+    "webcrypto",
+    "offline-first",
+    "react19",
+    "typescript",
+    "tailwindcss"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test": "node --experimental-strip-types tests/test-crypto.js",
+    "test:e2e": "node --experimental-strip-types tests/test-e2e-backup.js"
   },
   "dependencies": {
     "clsx": "^2.1.1",
