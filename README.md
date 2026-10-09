@@ -13,10 +13,17 @@
 [![Stars](https://img.shields.io/github/stars/dot-wasim/Gullak?style=social)](https://github.com/dot-wasim/Gullak)
 
 <p align="center">
+  <a href="https://github.com/dot-wasim/Gullak/releases/latest/download/Gullak.apk">
+    <img src="https://img.shields.io/badge/Download%20APK-Gullak%20v1.0.0-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download Android APK" />
+  </a>
+</p>
+
+<p align="center">
   <b>No accounts. No passwords. No phone numbers. No analytics. No trackers.</b><br>
   Just your budget, stored on your device, backed up with zero-knowledge cryptography.
 </p>
 
+[📲 Download APK](https://github.com/dot-wasim/Gullak/releases/latest/download/Gullak.apk) •
 [Key Features](#-key-features) •
 [Architecture](#-architecture--cryptographic-flow) •
 [Zero-Knowledge Security](#-zero-knowledge-security-model) •
