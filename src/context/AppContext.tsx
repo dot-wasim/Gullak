@@ -19,10 +19,16 @@ import {
 } from '../lib/storage';
 import { performBackup, fetchAndDecryptBackup, applyRestoredData } from '../lib/backupService';
 
-interface MonthSummary {
+export interface MonthSummary {
+  year: number;
+  month: number;
+  key: string;       // "YYYY-MM"
+  label: string;     // e.g. "October 2026"
+  shortLabel: string; // e.g. "Oct 2026"
   income: number;
   expenses: number;
   balance: number;
+  entryCount: number;
 }
 
 interface AppContextType {
@@ -35,6 +41,11 @@ interface AppContextType {
   isBackingUp: boolean;
   lastBackupStatus: string | null;
   monthSummary: MonthSummary;
+  selectedMonthKey: string;
+  setSelectedMonthKey: (key: string) => void;
+  allMonthsSummaries: MonthSummary[];
+  goToPreviousMonth: () => void;
+  goToNextMonth: () => void;
   addEntry: (entry: Omit<Entry, 'id'>) => Promise<boolean>;
   updateEntry: (entry: Entry) => Promise<boolean>;
   deleteEntry: (id: string) => Promise<boolean>;
@@ -121,36 +132,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Month summary calculation (FR-15, FR-16, FR-17)
-  const monthSummary = useMemo<MonthSummary>(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-indexed
+  // Helper to format key "YYYY-MM"
+  const getMonthKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
 
-    let totalIncome = 0;
-    let totalExpenses = 0;
+  const currentMonthKey = useMemo(() => getMonthKey(new Date()), []);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(currentMonthKey);
+
+  // Compute all months that have entries or include current month (newest first)
+  const allMonthsSummaries = useMemo<MonthSummary[]>(() => {
+    const map = new Map<string, { income: number; expenses: number; entryCount: number; date: Date }>();
+
+    // Always include current month
+    const now = new Date();
+    const curKey = getMonthKey(now);
+    map.set(curKey, {
+      income: 0,
+      expenses: 0,
+      entryCount: 0,
+      date: new Date(now.getFullYear(), now.getMonth(), 1),
+    });
 
     for (const entry of entries) {
       if (!entry.date) continue;
-      const entryDate = new Date(entry.date);
-      if (
-        entryDate.getFullYear() === currentYear &&
-        entryDate.getMonth() === currentMonth
-      ) {
-        if (entry.type === 'income') {
-          totalIncome += entry.amount;
-        } else if (entry.type === 'expense') {
-          totalExpenses += entry.amount;
-        }
+      const key = entry.date.substring(0, 7); // "YYYY-MM"
+      if (!map.has(key)) {
+        const [yStr, mStr] = key.split('-');
+        const y = parseInt(yStr, 10);
+        const m = (parseInt(mStr, 10) || 1) - 1;
+        map.set(key, {
+          income: 0,
+          expenses: 0,
+          entryCount: 0,
+          date: new Date(y, m, 1),
+        });
+      }
+
+      const item = map.get(key)!;
+      item.entryCount += 1;
+      if (entry.type === 'income') {
+        item.income += entry.amount;
+      } else if (entry.type === 'expense') {
+        item.expenses += entry.amount;
       }
     }
 
-    return {
-      income: totalIncome,
-      expenses: totalExpenses,
-      balance: totalIncome - totalExpenses,
-    };
+    // Convert to sorted array (newest month first)
+    const sortedKeys = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
+    return sortedKeys.map((key) => {
+      const data = map.get(key)!;
+      const d = data.date;
+      return {
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        key,
+        label: d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+        shortLabel: d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+        income: data.income,
+        expenses: data.expenses,
+        balance: data.income - data.expenses,
+        entryCount: data.entryCount,
+      };
+    });
   }, [entries]);
+
+  // Selected month summary (or fallback)
+  const monthSummary = useMemo<MonthSummary>(() => {
+    const found = allMonthsSummaries.find((m) => m.key === selectedMonthKey);
+    if (found) return found;
+
+    const [yStr, mStr] = selectedMonthKey.split('-');
+    const y = parseInt(yStr, 10) || new Date().getFullYear();
+    const m = (parseInt(mStr, 10) || (new Date().getMonth() + 1)) - 1;
+    const d = new Date(y, m, 1);
+    return {
+      year: y,
+      month: m,
+      key: selectedMonthKey,
+      label: d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+      shortLabel: d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+      income: 0,
+      expenses: 0,
+      balance: 0,
+      entryCount: 0,
+    };
+  }, [allMonthsSummaries, selectedMonthKey]);
+
+  const goToPreviousMonth = useCallback(() => {
+    const [yStr, mStr] = selectedMonthKey.split('-');
+    const y = parseInt(yStr, 10) || new Date().getFullYear();
+    const m = (parseInt(mStr, 10) || (new Date().getMonth() + 1)) - 1;
+    const prevDate = new Date(y, m - 1, 1);
+    setSelectedMonthKey(getMonthKey(prevDate));
+  }, [selectedMonthKey]);
+
+  const goToNextMonth = useCallback(() => {
+    const [yStr, mStr] = selectedMonthKey.split('-');
+    const y = parseInt(yStr, 10) || new Date().getFullYear();
+    const m = (parseInt(mStr, 10) || (new Date().getMonth() + 1)) - 1;
+    const nextDate = new Date(y, m + 1, 1);
+    setSelectedMonthKey(getMonthKey(nextDate));
+  }, [selectedMonthKey]);
 
   // Actions
   const addEntry = async (data: Omit<Entry, 'id'>) => {
@@ -197,6 +282,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...data,
       id: 'g_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       saved: 0,
+      createdAt: new Date().toISOString(),
     };
     dbAddGoal(newGoal);
     if (navigator.onLine && backupMeta?.hasSavedKey) {
@@ -282,6 +368,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isBackingUp,
         lastBackupStatus,
         monthSummary,
+        selectedMonthKey,
+        setSelectedMonthKey,
+        allMonthsSummaries,
+        goToPreviousMonth,
+        goToNextMonth,
         addEntry,
         updateEntry,
         deleteEntry,

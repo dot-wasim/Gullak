@@ -18,8 +18,9 @@ interface HistoryViewProps {
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
-  const { entries, settings, deleteEntry } = useApp();
+  const { entries, settings, deleteEntry, allMonthsSummaries } = useApp();
   const [filterType, setFilterType] = useState<'all' | EntryType>('all');
+  const [filterMonth, setFilterMonth] = useState<string>('all'); // 'all' or 'YYYY-MM'
   const [searchQuery, setSearchQuery] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
 
@@ -27,6 +28,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
   const filteredEntries = useMemo(() => {
     return entries.filter((e) => {
       if (filterType !== 'all' && e.type !== filterType) {
+        return false;
+      }
+      if (filterMonth !== 'all' && (!e.date || !e.date.startsWith(filterMonth))) {
         return false;
       }
       if (searchQuery.trim()) {
@@ -39,7 +43,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
       }
       return true;
     });
-  }, [entries, filterType, searchQuery]);
+  }, [entries, filterType, filterMonth, searchQuery]);
+
+  // Aggregate totals for the active filtered set
+  const filteredSummary = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    for (const item of filteredEntries) {
+      if (item.type === 'income') income += item.amount;
+      else if (item.type === 'expense') expense += item.amount;
+    }
+    return { income, expense, balance: income - expense };
+  }, [filteredEntries]);
 
   const handleDeleteConfirm = async () => {
     if (entryToDelete) {
@@ -53,22 +68,40 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
       {/* Title */}
       <div>
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">History</h1>
-        <p className="text-xs text-slate-500 mt-0.5">All income and expense records, newest first</p>
+        <p className="text-xs text-slate-500 mt-0.5">Filter records by month, type, and note</p>
       </div>
 
-      {/* Filter Tabs & Search */}
+      {/* Filter Tabs, Month Dropdown & Search */}
       <div className="space-y-2.5">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search records by note, category, or amount..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition"
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search note, category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition"
+            />
+          </div>
+
+          {/* Month Selector */}
+          <select
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:border-emerald-500 cursor-pointer shadow-2xs"
+            title="Filter by Month"
+          >
+            <option value="all">All Months</option>
+            {allMonthsSummaries.map((m) => (
+              <option key={m.key} value={m.key}>
+                {m.shortLabel} ({m.entryCount})
+              </option>
+            ))}
+          </select>
         </div>
 
+        {/* Type Tabs */}
         <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
           <button
             type="button"
@@ -79,7 +112,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            All ({entries.length})
+            All ({filteredEntries.length})
           </button>
           <button
             type="button"
@@ -104,6 +137,23 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
             Income
           </button>
         </div>
+
+        {/* Dynamic Filtered Summary Bar */}
+        {filteredEntries.length > 0 && (
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px]">
+            <div className="text-slate-500">
+              Earned: <span className="font-bold text-emerald-700">+{settings.currency}{filteredSummary.income.toLocaleString()}</span>
+            </div>
+            <div className="text-slate-500">
+              Spent: <span className="font-bold text-rose-700">-{settings.currency}{filteredSummary.expense.toLocaleString()}</span>
+            </div>
+            <div className="text-slate-500">
+              Net: <span className={`font-bold ${filteredSummary.balance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {settings.currency}{filteredSummary.balance.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Entries List (FR-20) */}

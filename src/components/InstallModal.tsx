@@ -145,6 +145,19 @@ export const InstallModal: React.FC<InstallModalProps> = ({
             </div>
           )}
 
+          {/* Direct Android APK download option */}
+          <div className="pt-1 border-t border-slate-100">
+            <a
+              href="https://github.com/dot-wasim/Gullak/releases/latest/download/Gullak.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 transition flex items-center justify-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Android APK (.apk)</span>
+            </a>
+          </div>
+
           <button
             type="button"
             onClick={onClose}

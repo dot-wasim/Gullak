@@ -250,9 +250,56 @@ export function getGoals(): Goal[] {
   return cachedGoals;
 }
 
+export function getGoalCreationDate(goal: Goal): Date {
+  if (goal.createdAt) {
+    return new Date(goal.createdAt);
+  }
+  const match = goal.id.match(/^g_(\d+)_/);
+  if (match) {
+    const ts = parseInt(match[1], 10);
+    if (!isNaN(ts)) return new Date(ts);
+  }
+  return new Date();
+}
+
+export function getGoalDurationInfo(goal: Goal): { isCompleted: boolean; durationText: string; daysCount: number } {
+  const startDate = getGoalCreationDate(goal);
+  const isCompleted = goal.saved >= goal.target;
+  const endDate = isCompleted ? (goal.completedAt ? new Date(goal.completedAt) : new Date()) : new Date();
+
+  const diffMs = Math.max(0, endDate.getTime() - startDate.getTime());
+  const diffDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+
+  if (isCompleted) {
+    if (diffDays <= 1) {
+      return { isCompleted: true, durationText: 'Completed in 1 day', daysCount: 1 };
+    }
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      const remDays = diffDays % 7;
+      const weekText = weeks > 0 ? (remDays > 0 ? ` (${weeks}w ${remDays}d)` : ` (${weeks}w)`) : '';
+      return { isCompleted: true, durationText: `Completed in ${diffDays} days${weekText}`, daysCount: diffDays };
+    }
+    const months = Math.floor(diffDays / 30);
+    const remDays = diffDays % 30;
+    const monthText = remDays > 0 ? `${months} mo, ${remDays} d` : `${months} mo`;
+    return { isCompleted: true, durationText: `Completed in ${monthText} (${diffDays} days)`, daysCount: diffDays };
+  } else {
+    if (diffDays <= 1) {
+      return { isCompleted: false, durationText: 'Started today', daysCount: 1 };
+    }
+    return { isCompleted: false, durationText: `In progress for ${diffDays} days`, daysCount: diffDays };
+  }
+}
+
 export function addGoal(goal: Goal): void {
   const goals = getGoals();
-  const updated = [...goals, goal];
+  const goalWithDates: Goal = {
+    ...goal,
+    createdAt: goal.createdAt || new Date().toISOString(),
+    completedAt: goal.saved >= goal.target ? (goal.completedAt || new Date().toISOString()) : undefined,
+  };
+  const updated = [...goals, goalWithDates];
   cachedGoals = updated;
   try {
     localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(updated));
@@ -264,7 +311,14 @@ export function addGoal(goal: Goal): void {
 
 export function updateGoal(updatedGoal: Goal): void {
   const goals = getGoals();
-  const updated = goals.map(g => (g.id === updatedGoal.id ? updatedGoal : g));
+  const normalizedGoal: Goal = {
+    ...updatedGoal,
+    createdAt: updatedGoal.createdAt || getGoalCreationDate(updatedGoal).toISOString(),
+    completedAt: updatedGoal.saved >= updatedGoal.target
+      ? (updatedGoal.completedAt || new Date().toISOString())
+      : undefined
+  };
+  const updated = goals.map(g => (g.id === normalizedGoal.id ? normalizedGoal : g));
   cachedGoals = updated;
   try {
     localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(updated));
@@ -291,9 +345,12 @@ export function addMoneyToGoal(id: string, amount: number): void {
   const goals = getGoals();
   const target = goals.find(g => g.id === id);
   if (!target) return;
+  const newSaved = target.saved + amount;
+  const isNowCompleted = newSaved >= target.target;
   const updatedGoal: Goal = {
     ...target,
-    saved: target.saved + amount
+    saved: newSaved,
+    completedAt: isNowCompleted ? (target.completedAt || new Date().toISOString()) : undefined
   };
   updateGoal(updatedGoal);
 }

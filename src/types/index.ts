@@ -15,7 +15,9 @@ export interface Goal {
   name: string;
   target: number;
   saved: number;
-  deadline?: string; // YYYY-MM-DD, optional
+  deadline?: string;   // YYYY-MM-DD, optional
+  createdAt?: string;  // ISO timestamp or YYYY-MM-DD
+  completedAt?: string; // ISO timestamp or YYYY-MM-DD when saved >= target
 }
 
 export interface Settings {

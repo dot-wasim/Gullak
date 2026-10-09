@@ -66,18 +66,24 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          name: "Gullak Android App v1.0.0"
-          tag_name: "v1.0.0"
+          name: "Gullak Android App v1.1.0"
+          tag_name: "v1.1.0"
           files: release-output/Gullak.apk
           body: |
-            ## 📱 Gullak Android App Release
+            ## 📱 Gullak Android App Release (v1.1.0)
             
-            Download the official **Gullak.apk** below and install it directly on your Android phone!
+            Download the updated **Gullak.apk** below and install or update on your Android phone!
             
-            ### How to Install:
+            ### ✨ What's New in v1.1.0:
+            - 📊 **Month-wise Tracker:** Easily compare earnings, expenses, and savings rate month-by-month with intuitive navigation.
+            - ⏱️ **Goal Completion Duration:** Tracks and displays how long it took to achieve savings targets (e.g. *Completed in 14 days*).
+            - 📱 **Clean Installed UI:** Automatically hides the "Install App" button when running inside the installed APK or standalone app.
+            - 🔐 **Zero-Knowledge Encryption:** Full AES-256-GCM + PBKDF2 hardware-accelerated privacy on Android.
+            
+            ### How to Install / Update:
             1. Download `Gullak.apk` to your phone.
             2. Tap the downloaded file.
-            3. Tap **Install** (if prompted, allow install from this source).
+            3. Tap **Install** or **Update**.
             4. Launch Gullak!
           draft: false
           prerelease: false

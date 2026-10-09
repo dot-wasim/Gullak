@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useApp } from './context/AppContext';
 import { Entry, Goal } from './types';
 import { HomeView } from './components/HomeView';
@@ -37,12 +38,34 @@ export const App: React.FC = () => {
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
+  // Helper to detect if already running as installed APK / PWA
+  const checkIsInstalled = () => {
+    try {
+      if (Capacitor.isNativePlatform()) return true;
+      if (typeof window !== 'undefined') {
+        if (window.matchMedia('(display-mode: standalone)').matches) return true;
+        if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((window.navigator as any)?.standalone === true) return true;
+        if (document.referrer.includes('android-app://')) return true;
+        if (localStorage.getItem('gullak_app_installed') === 'true') return true;
+      }
+    } catch {
+      // fallback
+    }
+    return false;
+  };
+
   // Native PWA install handling
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => checkIsInstalled());
 
   React.useEffect(() => {
+    if (checkIsInstalled()) {
+      setIsAppInstalled(true);
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handler = (e: any) => {
       e.preventDefault();
@@ -51,14 +74,26 @@ export const App: React.FC = () => {
     window.addEventListener('beforeinstallprompt', handler);
     window.addEventListener('appinstalled', () => {
       setIsAppInstalled(true);
+      try {
+        localStorage.setItem('gullak_app_installed', 'true');
+      } catch {
+        // ignore
+      }
       setDeferredPrompt(null);
     });
 
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsAppInstalled(true);
-    }
+    const displayModeQuery = window.matchMedia('(display-mode: standalone)');
+    const handleDisplayModeChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        setIsAppInstalled(true);
+      }
+    };
+    displayModeQuery.addEventListener('change', handleDisplayModeChange);
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      displayModeQuery.removeEventListener('change', handleDisplayModeChange);
+    };
   }, []);
 
   const handleInstallApp = () => {
@@ -259,7 +294,12 @@ export const App: React.FC = () => {
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
         deferredPrompt={deferredPrompt}
-        onInstalled={() => setIsAppInstalled(true)}
+        onInstalled={() => {
+          setIsAppInstalled(true);
+          try {
+            localStorage.setItem('gullak_app_installed', 'true');
+          } catch {}
+        }}
       />
     </div>
   );
