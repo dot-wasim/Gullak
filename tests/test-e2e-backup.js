@@ -48,15 +48,18 @@ async function runEndToEndVerification() {
     const backupId = await deriveBackupId(recoveryKey);
     console.log('✓ 2. Backup ID derived:', backupId);
 
-    // 2. Encrypt sample budget data (Entries, Goals, Settings)
+    // 2. Encrypt sample budget data (Entries, Goals, Accounts, Settings)
     const originalData = {
       version: 1,
       entries: [
-        { id: 'e1', type: 'expense', amount: 350, category: 'Food & Drinks', date: '2026-10-06', note: 'Lunch' },
-        { id: 'e2', type: 'income', amount: 50000, source: 'Salary', date: '2026-10-01' }
+        { id: 'e1', type: 'expense', amount: 350, category: 'Food & Drinks', accountId: 'acc_sbi', date: '2026-10-06', note: 'Lunch' },
+        { id: 'e2', type: 'income', amount: 50000, source: 'Salary', accountId: 'acc_sbi', date: '2026-10-01' }
       ],
       goals: [
         { id: 'g1', name: 'Emergency Fund', target: 25000, saved: 10000, deadline: '2026-12-31' }
+      ],
+      accounts: [
+        { id: 'acc_sbi', name: 'SBI Bank', initialBalance: 5000, isDefault: true, createdAt: '2026-01-01' }
       ],
       settings: { currency: '₹', categories: ['Food & Drinks'], incomeSources: ['Salary'] },
       exportedAt: new Date().toISOString()
@@ -88,7 +91,7 @@ async function runEndToEndVerification() {
     // 6. Decrypt data on device
     const restoredData = await decryptData(encKey, fetchJson.encryptedData, fetchJson.iv);
     console.log('✓ 7. Decrypted payload on client:', restoredData.entries.length, 'entries restored.');
-    if (restoredData.entries[0].amount !== 350 || restoredData.goals[0].name !== 'Emergency Fund') {
+    if (restoredData.entries[0].amount !== 350 || restoredData.goals[0].name !== 'Emergency Fund' || restoredData.accounts[0].name !== 'SBI Bank') {
       throw new Error('Restored data mismatch');
     }
 

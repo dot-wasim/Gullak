@@ -10,6 +10,7 @@ import {
   Filter,
   Calendar,
   FileText,
+  Building2,
 } from 'lucide-react';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
@@ -18,9 +19,10 @@ interface HistoryViewProps {
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
-  const { entries, settings, deleteEntry, allMonthsSummaries } = useApp();
+  const { entries, settings, deleteEntry, allMonthsSummaries, accounts, defaultAccount } = useApp();
   const [filterType, setFilterType] = useState<'all' | EntryType>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all'); // 'all' or 'YYYY-MM'
+  const [filterAccount, setFilterAccount] = useState<string>('all'); // 'all' or accountId
   const [searchQuery, setSearchQuery] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
 
@@ -33,17 +35,25 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
       if (filterMonth !== 'all' && (!e.date || !e.date.startsWith(filterMonth))) {
         return false;
       }
+      if (filterAccount !== 'all') {
+        const entryAccId = e.accountId || defaultAccount.id;
+        if (entryAccId !== filterAccount) {
+          return false;
+        }
+      }
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const categoryMatch = e.category?.toLowerCase().includes(query) ?? false;
         const sourceMatch = e.source?.toLowerCase().includes(query) ?? false;
         const noteMatch = e.note?.toLowerCase().includes(query) ?? false;
         const amountMatch = e.amount.toString().includes(query);
-        return categoryMatch || sourceMatch || noteMatch || amountMatch;
+        const accountName = (e.accountName || accounts.find((a) => a.id === e.accountId)?.name || '').toLowerCase();
+        const accountMatch = accountName.includes(query);
+        return categoryMatch || sourceMatch || noteMatch || amountMatch || accountMatch;
       }
       return true;
     });
-  }, [entries, filterType, filterMonth, searchQuery]);
+  }, [entries, filterType, filterMonth, filterAccount, searchQuery, defaultAccount, accounts]);
 
   // Aggregate totals for the active filtered set
   const filteredSummary = useMemo(() => {
@@ -71,31 +81,45 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
         <p className="text-xs text-slate-500 mt-0.5">Filter records by month, type, and note</p>
       </div>
 
-      {/* Filter Tabs, Month Dropdown & Search */}
+      {/* Filter Tabs, Month & Account Dropdowns & Search */}
       <div className="space-y-2.5">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search note, category..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition"
-            />
-          </div>
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search note, category, account..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition"
+          />
+        </div>
 
-          {/* Month Selector */}
+        {/* Month & Account Filters */}
+        <div className="flex gap-2">
           <select
             value={filterMonth}
             onChange={(e) => setFilterMonth(e.target.value)}
-            className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:border-emerald-500 cursor-pointer shadow-2xs"
+            className="flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:border-emerald-500 cursor-pointer shadow-2xs truncate"
             title="Filter by Month"
           >
             <option value="all">All Months</option>
             {allMonthsSummaries.map((m) => (
               <option key={m.key} value={m.key}>
                 {m.shortLabel} ({m.entryCount})
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filterAccount}
+            onChange={(e) => setFilterAccount(e.target.value)}
+            className="flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:border-emerald-500 cursor-pointer shadow-2xs truncate"
+            title="Filter by Account"
+          >
+            <option value="all">All Accounts</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} {acc.id === defaultAccount.id ? '⭐' : ''}
               </option>
             ))}
           </select>
@@ -192,12 +216,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onEditEntry }) => {
                     <h3 className="text-sm font-bold text-slate-800">
                       {entry.type === 'income' ? entry.source : entry.category}
                     </h3>
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 mt-0.5">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         <span>{entry.date}</span>
                       </span>
                       <span className="capitalize">{entry.type}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                        <Building2 className="w-2.5 h-2.5 text-slate-500" />
+                        <span>{entry.accountName || accounts.find((a) => a.id === entry.accountId)?.name || defaultAccount.name}</span>
+                      </span>
                     </div>
                   </div>
                 </div>

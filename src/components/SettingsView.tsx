@@ -16,7 +16,12 @@ import {
   WifiOff,
   Briefcase,
   Plus,
+  Building2,
+  Wallet,
+  Trash2,
 } from 'lucide-react';
+import { Account } from '../types';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface SettingsViewProps {
   onOpenRestore: () => void;
@@ -30,12 +35,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenRestore }) => 
     isOnline,
     settings,
     addCustomIncomeSource,
+    accounts,
+    defaultAccount,
+    accountBalances,
+    addAccount,
+    deleteAccount,
+    setDefaultAccount,
   } = useApp();
 
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [newStreamText, setNewStreamText] = useState('');
+
+  // Accounts management state
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountBalance, setNewAccountBalance] = useState('');
+  const [newAccountIsDefault, setNewAccountIsDefault] = useState(false);
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+
+  const handleAddAccount = async () => {
+    if (!newAccountName.trim()) return;
+    setIsAddingAccount(true);
+    try {
+      const parsedBal = parseFloat(newAccountBalance) || 0;
+      await addAccount({
+        name: newAccountName.trim(),
+        initialBalance: parsedBal,
+        isDefault: newAccountIsDefault,
+      });
+      setNewAccountName('');
+      setNewAccountBalance('');
+      setNewAccountIsDefault(false);
+      setAccountMessage('Account created successfully!');
+      setTimeout(() => setAccountMessage(null), 3000);
+    } catch {
+      setAccountMessage('Failed to add account.');
+    } finally {
+      setIsAddingAccount(false);
+    }
+  };
+
+  const handleSetDefault = async (id: string, name: string) => {
+    await setDefaultAccount(id);
+    setAccountMessage(`"${name}" is now your default account.`);
+    setTimeout(() => setAccountMessage(null), 3000);
+  };
+
+  const handleDeleteAccountConfirm = async () => {
+    if (accountToDelete) {
+      await deleteAccount(accountToDelete.id);
+      setAccountToDelete(null);
+      setAccountMessage('Account deleted.');
+      setTimeout(() => setAccountMessage(null), 3000);
+    }
+  };
 
   const handleCopyKey = async () => {
     if (!backupMeta?.recoveryKey) return;
@@ -220,6 +276,155 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenRestore }) => 
         )}
       </div>
 
+      {/* Accounts & Banks Management (Multiple Accounts Feature) */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-2xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">
+                Accounts & Banks ({accounts.length})
+              </h3>
+              <p className="text-[11px] text-slate-400">Manage bank accounts, wallets, and cash</p>
+            </div>
+          </div>
+        </div>
+
+        {accountMessage && (
+          <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-medium">
+            {accountMessage}
+          </div>
+        )}
+
+        {/* Account list */}
+        <div className="space-y-2">
+          {accounts.map((acc) => {
+            const isDefault = acc.id === defaultAccount.id || acc.isDefault;
+            const balance = accountBalances[acc.id] ?? acc.initialBalance;
+            const isCash = acc.name.toLowerCase().includes('cash');
+
+            return (
+              <div
+                key={acc.id}
+                className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-2xl hover:bg-slate-100/70 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      isCash ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {isCash ? <Wallet className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-800">{acc.name}</span>
+                      {isDefault && (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                          ⭐ Default
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Balance:{' '}
+                      <strong className={balance >= 0 ? 'text-slate-800' : 'text-rose-600'}>
+                        {settings.currency}{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                      {acc.initialBalance > 0 && (
+                        <span className="text-slate-400 text-[10px] ml-1">
+                          (started with {settings.currency}{acc.initialBalance.toLocaleString('en-IN')})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {!isDefault && (
+                    <button
+                      type="button"
+                      onClick={() => handleSetDefault(acc.id, acc.name)}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:border-slate-300 rounded-lg shadow-2xs transition cursor-pointer"
+                      title="Make this your default account for transactions"
+                    >
+                      Set Default
+                    </button>
+                  )}
+
+                  {accounts.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setAccountToDelete(acc)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                      title="Delete account"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Add new account form */}
+        <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3">
+          <span className="text-xs font-bold text-slate-700 block">Add New Account or Bank</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Account Name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. HDFC Bank, ICICI, Cash"
+                value={newAccountName}
+                onChange={(e) => setNewAccountName(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none transition"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Starting Balance ({settings.currency})
+              </label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                placeholder="0"
+                value={newAccountBalance}
+                onChange={(e) => setNewAccountBalance(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none transition"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={newAccountIsDefault}
+                onChange={(e) => setNewAccountIsDefault(e.target.checked)}
+                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+              />
+              <span className="text-xs font-medium text-slate-700">Set as default</span>
+            </label>
+
+            <button
+              type="button"
+              disabled={!newAccountName.trim() || isAddingAccount}
+              onClick={handleAddAccount}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{isAddingAccount ? 'Adding...' : 'Add Account'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Income Streams Management */}
       <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-2xs">
         <div className="flex items-center gap-2.5">
@@ -288,6 +493,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenRestore }) => 
           <li>Offline-ready PWA: Keep adding transactions without internet access.</li>
         </ul>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(accountToDelete)}
+        title="Delete Account"
+        message={`Delete "${accountToDelete?.name}"? Transactions assigned to this account will remain and fall back to your default account.`}
+        onConfirm={handleDeleteAccountConfirm}
+        onCancel={() => setAccountToDelete(null)}
+      />
     </div>
   );
 };

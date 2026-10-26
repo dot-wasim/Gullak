@@ -17,6 +17,7 @@ import {
   ChevronRight,
   CalendarDays,
   Calendar,
+  Building2,
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -36,6 +37,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
     monthSummary,
     goals,
     entries,
+    accounts,
+    accountBalances,
+    defaultAccount,
+    totalAccountBalance,
     settings,
     backupMeta,
     selectedMonthKey,
@@ -171,6 +176,63 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <Plus className="w-5 h-5 stroke-[2.5]" />
         <span className="text-base">Add Entry</span>
       </button>
+
+      {/* Accounts & Live Balances (Multiple Accounts Feature) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-emerald-600" />
+            <span>Accounts & Balances</span>
+          </h2>
+          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200/60">
+            Total: {settings.currency}{totalAccountBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {accounts.map((acc) => {
+            const balance = accountBalances[acc.id] ?? acc.initialBalance;
+            const isDefault = acc.id === defaultAccount.id || acc.isDefault;
+            const isCash = acc.name.toLowerCase().includes('cash');
+
+            return (
+              <div
+                key={acc.id}
+                className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs space-y-2 relative overflow-hidden"
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      isCash ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {isCash ? <Wallet className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
+                  </div>
+                  {isDefault && (
+                    <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded-md">
+                      ⭐ Default
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 truncate" title={acc.name}>
+                    {acc.name}
+                  </h3>
+                  <div
+                    className={`text-sm font-black mt-0.5 tracking-tight ${
+                      balance >= 0 ? 'text-slate-900' : 'text-rose-600'
+                    }`}
+                  >
+                    {settings.currency}
+                    {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Active Goals Preview (FR-18, FR-13, FR-14) */}
       <div className="space-y-3">
@@ -430,7 +492,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <h4 className="text-xs font-bold text-slate-800">
                       {entry.type === 'income' ? entry.source : entry.category}
                     </h4>
-                    <span className="text-[11px] text-slate-400">{entry.date}</span>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                      <span>{entry.date}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                        {entry.accountName || accounts.find((a) => a.id === entry.accountId)?.name || defaultAccount.name}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

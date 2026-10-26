@@ -1,11 +1,21 @@
 export type EntryType = 'income' | 'expense';
 
+export interface Account {
+  id: string;
+  name: string;
+  initialBalance: number;
+  isDefault?: boolean;
+  createdAt: string;
+}
+
 export interface Entry {
   id: string;
   type: EntryType;
   amount: number;
   category?: string; // required for expense
   source?: string;   // required for income
+  accountId?: string; // ID of the account deposited to or paid from
+  accountName?: string; // Cache of account name for display/export
   note?: string;     // optional
   date: string;      // YYYY-MM-DD, required
 }
@@ -24,12 +34,14 @@ export interface Settings {
   currency: string;
   categories: string[];
   incomeSources: string[];
+  defaultAccountId?: string;
 }
 
 export interface BackupPayload {
   version: number;
   entries: Entry[];
   goals: Goal[];
+  accounts?: Account[];
   settings: Settings;
   exportedAt: string;
 }

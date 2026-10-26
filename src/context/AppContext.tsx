@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { Entry, Goal, Settings, BackupMeta, BackupPayload } from '../types';
+import { Entry, Goal, Settings, BackupMeta, BackupPayload, Account } from '../types';
 import {
   initStorage,
   getEntries,
   getGoals,
+  getAccounts,
   getSettings,
   getBackupMeta,
   addEntry as dbAddEntry,
@@ -14,6 +15,10 @@ import {
   deleteGoal as dbDeleteGoal,
   addMoneyToGoal as dbAddMoneyToGoal,
   addIncomeSource as dbAddIncomeSource,
+  addAccount as dbAddAccount,
+  updateAccount as dbUpdateAccount,
+  deleteAccount as dbDeleteAccount,
+  setDefaultAccount as dbSetDefaultAccount,
   markKeySaved as dbMarkKeySaved,
   subscribeStorage
 } from '../lib/storage';
@@ -34,6 +39,11 @@ export interface MonthSummary {
 interface AppContextType {
   entries: Entry[];
   goals: Goal[];
+  accounts: Account[];
+  defaultAccount: Account;
+  accountBalances: Record<string, number>;
+  totalAccountBalance: number;
+  getAccountBalance: (accountId: string) => number;
   settings: Settings;
   backupMeta: BackupMeta | null;
   isOnline: boolean;
@@ -53,6 +63,10 @@ interface AppContextType {
   updateGoal: (goal: Goal) => Promise<boolean>;
   deleteGoal: (id: string) => Promise<boolean>;
   addMoneyToGoal: (id: string, amount: number) => Promise<boolean>;
+  addAccount: (data: { name: string; initialBalance?: number; isDefault?: boolean }) => Promise<Account>;
+  updateAccount: (account: Account) => Promise<boolean>;
+  deleteAccount: (id: string) => Promise<boolean>;
+  setDefaultAccount: (id: string) => Promise<boolean>;
   addCustomIncomeSource: (source: string) => void;
   confirmKeySaved: () => void;
   runBackup: () => Promise<{ success: boolean; error?: string }>;
@@ -65,6 +79,7 @@ const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [settings, setSettings] = useState<Settings>(getSettings());
   const [backupMeta, setBackupMeta] = useState<BackupMeta | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -76,6 +91,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const reloadFromStorage = useCallback(() => {
     setEntries(getEntries());
     setGoals(getGoals());
+    setAccounts(getAccounts());
     setSettings(getSettings());
     setBackupMeta(getBackupMeta());
   }, []);
@@ -237,13 +253,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedMonthKey(getMonthKey(nextDate));
   }, [selectedMonthKey]);
 
+  // Account calculations
+  const defaultAccount = useMemo<Account>(() => {
+    if (settings.defaultAccountId) {
+      const found = accounts.find(a => a.id === settings.defaultAccountId);
+      if (found) return found;
+    }
+    return accounts.find(a => a.isDefault) || accounts[0] || {
+      id: 'acc_sbi',
+      name: 'SBI Bank',
+      initialBalance: 0,
+      isDefault: true,
+      createdAt: '2026-01-01T00:00:00.000Z'
+    };
+  }, [accounts, settings.defaultAccountId]);
+
+  const accountBalances = useMemo<Record<string, number>>(() => {
+    const balances: Record<string, number> = {};
+    for (const acc of accounts) {
+      balances[acc.id] = acc.initialBalance || 0;
+    }
+    for (const entry of entries) {
+      // Attribute entry to its account or fallback to defaultAccount
+      const targetId = entry.accountId || defaultAccount.id;
+      if (balances[targetId] === undefined) {
+        balances[targetId] = 0;
+      }
+      if (entry.type === 'income') {
+        balances[targetId] += entry.amount;
+      } else if (entry.type === 'expense') {
+        balances[targetId] -= entry.amount;
+      }
+    }
+    return balances;
+  }, [accounts, entries, defaultAccount]);
+
+  const totalAccountBalance = useMemo<number>(() => {
+    return Object.values(accountBalances).reduce((sum, b) => sum + b, 0);
+  }, [accountBalances]);
+
+  const getAccountBalance = useCallback((accountId: string) => {
+    return accountBalances[accountId] ?? 0;
+  }, [accountBalances]);
+
   // Actions
   const addEntry = async (data: Omit<Entry, 'id'>) => {
     if (data.amount <= 0) {
       throw new Error('Amount must be greater than zero.');
     }
+    const targetAccountId = data.accountId || defaultAccount.id;
+    const targetAccount = accounts.find(a => a.id === targetAccountId) || defaultAccount;
+
     const newEntry: Entry = {
       ...data,
+      accountId: targetAccountId,
+      accountName: targetAccount.name,
       id: 'e_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     };
     dbAddEntry(newEntry);
@@ -259,7 +323,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (entry.amount <= 0) {
       throw new Error('Amount must be greater than zero.');
     }
-    dbUpdateEntry(entry);
+    const targetAccountId = entry.accountId || defaultAccount.id;
+    const targetAccount = accounts.find(a => a.id === targetAccountId) || defaultAccount;
+
+    const updated: Entry = {
+      ...entry,
+      accountId: targetAccountId,
+      accountName: targetAccount.name,
+    };
+    dbUpdateEntry(updated);
     if (navigator.onLine && backupMeta?.hasSavedKey) {
       performBackup().catch(() => {});
     }
@@ -268,6 +340,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteEntry = async (id: string) => {
     dbDeleteEntry(id);
+    if (navigator.onLine && backupMeta?.hasSavedKey) {
+      performBackup().catch(() => {});
+    }
+    return true;
+  };
+
+  const addAccount = async (data: { name: string; initialBalance?: number; isDefault?: boolean }) => {
+    const created = dbAddAccount(data);
+    reloadFromStorage();
+    if (navigator.onLine && backupMeta?.hasSavedKey) {
+      performBackup().catch(() => {});
+    }
+    return created;
+  };
+
+  const updateAccount = async (account: Account) => {
+    dbUpdateAccount(account);
+    reloadFromStorage();
+    if (navigator.onLine && backupMeta?.hasSavedKey) {
+      performBackup().catch(() => {});
+    }
+    return true;
+  };
+
+  const deleteAccount = async (id: string) => {
+    dbDeleteAccount(id);
+    reloadFromStorage();
+    if (navigator.onLine && backupMeta?.hasSavedKey) {
+      performBackup().catch(() => {});
+    }
+    return true;
+  };
+
+  const setDefaultAccount = async (id: string) => {
+    dbSetDefaultAccount(id);
+    setSettings(prev => ({ ...prev, defaultAccountId: id }));
+    reloadFromStorage();
     if (navigator.onLine && backupMeta?.hasSavedKey) {
       performBackup().catch(() => {});
     }
@@ -361,6 +470,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         entries,
         goals,
+        accounts,
+        defaultAccount,
+        accountBalances,
+        totalAccountBalance,
+        getAccountBalance,
         settings,
         backupMeta,
         isOnline,
@@ -380,6 +494,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateGoal,
         deleteGoal,
         addMoneyToGoal,
+        addAccount,
+        updateAccount,
+        deleteAccount,
+        setDefaultAccount,
         addCustomIncomeSource,
         confirmKeySaved,
         runBackup,

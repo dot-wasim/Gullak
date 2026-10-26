@@ -66,19 +66,22 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          name: "Gullak Android App v1.1.0"
-          tag_name: "v1.1.0"
+          name: "Gullak Android App v1.2.0"
+          tag_name: "v1.2.0"
           files: release-output/Gullak.apk
           body: |
-            ## 📱 Gullak Android App Release (v1.1.0)
+            ## 📱 Gullak Android App Release (v1.2.0)
             
             Download the updated **Gullak.apk** below and install or update on your Android phone!
             
-            ### ✨ What's New in v1.1.0:
-            - 📊 **Month-wise Tracker:** Easily compare earnings, expenses, and savings rate month-by-month with intuitive navigation.
-            - ⏱️ **Goal Completion Duration:** Tracks and displays how long it took to achieve savings targets (e.g. *Completed in 14 days*).
-            - 📱 **Clean Installed UI:** Automatically hides the "Install App" button when running inside the installed APK or standalone app.
-            - 🔐 **Zero-Knowledge Encryption:** Full AES-256-GCM + PBKDF2 hardware-accelerated privacy on Android.
+            ### ✨ What's New in v1.2.0:
+            - 🏦 **Multiple Accounts Support:** Add and manage multiple bank accounts (e.g. SBI Bank, HDFC Bank, ICICI) and Cash wallets.
+            - 💳 **Deposit To & Paid From:** When adding income, choose which account receives the funds; when recording an expense, choose which account is debited.
+            - 🛡️ **Insufficient Balance & Overdraft Guard:** Real-time balance check prevents recording an expense that exceeds an account's available balance with clear warnings.
+            - ⭐ **Custom Default Account:** Easily select your preferred default account in Settings or when creating accounts.
+            - 🏧 **Cash Withdrawal Tag:** Dedicated "Cash Withdrawal" category for ATM withdrawals.
+            - 🔍 **Account Filtering & Badges:** Filter transactions by specific bank account or wallet in History, and view account badges across your feed.
+            - 🔐 **Zero-Knowledge Encrypted:** All account balances and metadata are end-to-end encrypted with AES-256-GCM.
             
             ### How to Install / Update:
             1. Download `Gullak.apk` to your phone.

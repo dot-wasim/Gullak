@@ -1,12 +1,30 @@
-import { Entry, Goal, Settings, BackupMeta, BackupPayload } from '../types';
+import { Entry, Goal, Settings, BackupMeta, BackupPayload, Account } from '../types';
 import { generateRecoveryKey, deriveBackupId } from './crypto';
 
 const STORAGE_KEYS = {
   ENTRIES: 'gullak_entries_v1',
   GOALS: 'gullak_goals_v1',
+  ACCOUNTS: 'gullak_accounts_v1',
   SETTINGS: 'gullak_settings_v1',
   BACKUP_META: 'gullak_backup_meta_v1'
 };
+
+export const DEFAULT_ACCOUNTS: Account[] = [
+  {
+    id: 'acc_sbi',
+    name: 'SBI Bank',
+    initialBalance: 0,
+    isDefault: true,
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'acc_cash',
+    name: 'Cash',
+    initialBalance: 0,
+    isDefault: false,
+    createdAt: '2026-01-01T00:00:00.000Z'
+  }
+];
 
 const DEFAULT_SETTINGS: Settings = {
   currency: '₹',
@@ -20,6 +38,7 @@ const DEFAULT_SETTINGS: Settings = {
     'Health',
     'Entertainment',
     'Education',
+    'Cash Withdrawal',
     'Other'
   ],
   incomeSources: [
@@ -35,12 +54,14 @@ const DEFAULT_SETTINGS: Settings = {
     'Gift / Grant',
     'Refund / Cashback',
     'Other'
-  ]
+  ],
+  defaultAccountId: 'acc_sbi'
 };
 
 // In-memory cache
 let cachedEntries: Entry[] | null = null;
 let cachedGoals: Goal[] | null = null;
+let cachedAccounts: Account[] | null = null;
 let cachedSettings: Settings | null = null;
 let cachedMeta: BackupMeta | null = null;
 
@@ -355,6 +376,118 @@ export function addMoneyToGoal(id: string, amount: number): void {
   updateGoal(updatedGoal);
 }
 
+// ==========================================
+// Accounts Storage & Management
+// ==========================================
+
+export function getAccounts(): Account[] {
+  if (cachedAccounts && cachedAccounts.length > 0) return cachedAccounts;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
+    if (raw) {
+      const parsed: Account[] = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Ensure at least one account has isDefault
+        const hasDefault = parsed.some(a => a.isDefault);
+        if (!hasDefault) {
+          parsed[0].isDefault = true;
+        }
+        cachedAccounts = parsed;
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading accounts', err);
+  }
+
+  // Fallback to default accounts
+  const initial = [...DEFAULT_ACCOUNTS];
+  saveAccounts(initial);
+  return initial;
+}
+
+export function saveAccounts(accounts: Account[]): void {
+  cachedAccounts = accounts;
+  try {
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
+  } catch (err) {
+    console.error('Error saving accounts', err);
+  }
+  notifySubscribers();
+}
+
+export function addAccount(data: { name: string; initialBalance?: number; isDefault?: boolean }): Account {
+  const accounts = getAccounts();
+  const name = data.name.trim();
+  if (!name) {
+    throw new Error('Account name cannot be empty.');
+  }
+
+  const shouldBeDefault = data.isDefault || accounts.length === 0;
+  const normalizedAccounts = shouldBeDefault
+    ? accounts.map(a => ({ ...a, isDefault: false }))
+    : accounts;
+
+  const newAccount: Account = {
+    id: 'acc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    name,
+    initialBalance: Math.max(0, Number(data.initialBalance) || 0),
+    isDefault: shouldBeDefault,
+    createdAt: new Date().toISOString()
+  };
+
+  saveAccounts([...normalizedAccounts, newAccount]);
+  return newAccount;
+}
+
+export function updateAccount(updated: Account): void {
+  const accounts = getAccounts();
+  const updatedList = accounts.map(a => {
+    if (a.id === updated.id) {
+      return {
+        ...a,
+        ...updated,
+        name: updated.name.trim() || a.name,
+        initialBalance: Math.max(0, Number(updated.initialBalance) || 0)
+      };
+    }
+    // If updated is set as default, unset on others
+    if (updated.isDefault) {
+      return { ...a, isDefault: false };
+    }
+    return a;
+  });
+
+  saveAccounts(updatedList);
+}
+
+export function deleteAccount(id: string): boolean {
+  const accounts = getAccounts();
+  if (accounts.length <= 1) {
+    throw new Error('You must keep at least one account.');
+  }
+
+  const accountToDelete = accounts.find(a => a.id === id);
+  if (!accountToDelete) return false;
+
+  const remaining = accounts.filter(a => a.id !== id);
+  if (accountToDelete.isDefault && remaining.length > 0) {
+    remaining[0].isDefault = true;
+  }
+
+  saveAccounts(remaining);
+  return true;
+}
+
+export function setDefaultAccount(id: string): void {
+  const accounts = getAccounts();
+  const updated = accounts.map(a => ({
+    ...a,
+    isDefault: a.id === id
+  }));
+  saveAccounts(updated);
+}
+
 /**
  * Returns full data bundle to be encrypted for backup (7.2).
  */
@@ -363,6 +496,7 @@ export function getAllDataForBackup(): BackupPayload {
     version: 1,
     entries: getEntries(),
     goals: getGoals(),
+    accounts: getAccounts(),
     settings: getSettings(),
     exportedAt: new Date().toISOString()
   };
@@ -378,6 +512,7 @@ export function replaceLocalData(payload: BackupPayload, recoveryKey: string, ba
 
   cachedEntries = sortEntriesNewestFirst(payload.entries);
   cachedGoals = payload.goals || [];
+  cachedAccounts = payload.accounts || DEFAULT_ACCOUNTS;
   cachedSettings = payload.settings || DEFAULT_SETTINGS;
   
   cachedMeta = {
@@ -390,6 +525,7 @@ export function replaceLocalData(payload: BackupPayload, recoveryKey: string, ba
   try {
     localStorage.setItem(STORAGE_KEYS.ENTRIES, JSON.stringify(cachedEntries));
     localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(cachedGoals));
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(cachedAccounts));
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(cachedSettings));
     localStorage.setItem(STORAGE_KEYS.BACKUP_META, JSON.stringify(cachedMeta));
   } catch (err) {
