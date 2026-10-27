@@ -14,7 +14,20 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
+      // In native Capacitor / Android WebView, purge service worker & caches to always load fresh assets
+      const isNativeApp = window.location.hostname === 'localhost' || window.location.protocol === 'capacitor:' || window.navigator.userAgent.includes('wv');
+      if (isNativeApp) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(regs => {
+            for (let reg of regs) reg.unregister();
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            for (let name of names) caches.delete(name);
+          });
+        }
+      } else if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch(err => {
             console.log('SW registration failed: ', err);

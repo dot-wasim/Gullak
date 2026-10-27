@@ -492,6 +492,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenRestore }) => 
           <li>Zero server knowledge: Data is encrypted before leaving the device.</li>
           <li>Offline-ready PWA: Keep adding transactions without internet access.</li>
         </ul>
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+          <span>App Version: <strong className="text-slate-700">v1.2.0</strong></span>
+          <span>Multiple Accounts Enabled</span>
+        </div>
       </div>
 
       {/* Delete Account Confirmation Modal */}

@@ -131,8 +131,13 @@ export const App: React.FC = () => {
             <PiggyBank className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-base font-black tracking-tight text-slate-900">Gullak</h1>
-            <span className="text-[10px] font-semibold text-emerald-600 tracking-wider block -mt-1 uppercase">
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base font-black tracking-tight text-slate-900">Gullak</h1>
+              <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded-md">
+                v1.2
+              </span>
+            </div>
+            <span className="text-[10px] font-semibold text-emerald-600 tracking-wider block -mt-0.5 uppercase">
               Private Budget
             </span>
           </div>
